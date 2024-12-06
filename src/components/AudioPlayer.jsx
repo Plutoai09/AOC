@@ -77,9 +77,10 @@ const LoadingSkeleton = () => {
 
 const AudioPlayer = () => {
   const navigate = useNavigate();
-  const boooknaame = "ArtOfConversation"
+  
   const name = "user"
-  const bookName = "ArtOfConversation"
+  const [bookName, setBookName] = useState("ArtOfConversation");
+
   const Name = "ArtOfConversation"
   // Group all useState declarations together
   const [isLoading, setIsLoading] = useState(true);
@@ -174,14 +175,34 @@ const [duration, setDuration] = useState(0);
 
 
   useEffect(() => {
+
+  
+
     const fetchAudiobook = async () => {
       try {
+
+        const personaToken = localStorage.getItem('persona')?.toLowerCase();
+        console.log(personaToken)
+   
+        let updatedBookName = bookName; // Default to existing bookName
+
+        if (personaToken && personaToken.includes('category 2')) {
+          updatedBookName = 'artofsecond';
+        } else if (personaToken && personaToken.includes('category 3')) {
+          updatedBookName = 'artofthird';
+        } else if (personaToken && personaToken.includes('category 4')) {
+          updatedBookName = 'artoffourth';
+        }
+    
+        // Update the bookName state if it changed
+        console.log(updatedBookName)
+
         const response = await fetch("https://contractus.co.in/api/audiobook", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ name, bookName }),
+          body: JSON.stringify({ name, updatedBookName }),
         });
 
         if (!response.ok) {
@@ -248,6 +269,8 @@ const [duration, setDuration] = useState(0);
       };
     }
   }, [audioSrc]);
+
+
   useEffect(() => {
     if (audioElement) {
       const handleEnded = async () => {
@@ -256,7 +279,7 @@ const [duration, setDuration] = useState(0);
           try {
             // Get email from localStorage for analytics
             const email = localStorage.getItem('plutoemail') || 'anonymous';
-            
+             
             // Log the chapter transition
             await fetch('https://contractus.co.in/event', {
               method: 'POST',
@@ -528,7 +551,30 @@ const [duration, setDuration] = useState(0);
     };
   }, [audioElement]);
   
+  const getChapterFilterLists = (persona) => {
+    let caTtoken = localStorage.getItem('persona')?.toLowerCase() || 'category 1';
+    const personaCategories = {
+      'category 1': { listA: [1, 4, 9, 12, 14], listB: [2, 4, 8, 10, 11] },
+      'category 2': { listA: [1, 5, 7, 10, 13, 15], listB: [2, 5, 6, 8, 10, 11] },
+      'category 3': { listA: [1, 4, 7, 10, 12, 16], listB: [2, 4, 6, 8, 9, 12] },
+      'category 4': { listA: [1, 3, 6, 10, 13, 15], listB: [2, 3, 5, 8, 10, 11] }
+    };
+  
+    // Find the first category that matches the persona
+    const matchedCategory = Object.keys(personaCategories).find(cat => 
+     caTtoken.includes(cat.toLowerCase())
+    );
+  
 
+  
+    // If a matching category is found, return its lists
+    if (matchedCategory) {
+      return personaCategories[matchedCategory];
+    }
+  
+    // If no match is found, return default lists (category 1)
+    return personaCategories['category 1'];
+  };
 
   
   useEffect(() => {
@@ -560,59 +606,85 @@ const [duration, setDuration] = useState(0);
     }
   }, [audioElement]); 
 
-const playChapter = async (index) => {
-  if (isChapterLoading || currentChapter === index) return;
-  
-  setIsChapterLoading(true);
-  
-  try {
-    // Non-blocking event logging
-    const email = localStorage.getItem('plutoemail') || 'anonymous';
-    fetch('https://contractus.co.in/event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, Chapter: index })
-    });
 
-    // Stop current audio immediately
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.src = '';
+
+
+
+  
+  const playChapter = async (index) => {
+    // If the requested chapter is the current chapter and it's already loaded
+    if (currentChapter === index && audioElement) {
+      // If the audio is paused, start playing
+      if (audioElement.paused) {
+        try {
+          await audioElement.play();
+          setIsPlaying(true);
+          return;
+        } catch (error) {
+          console.error("Failed to play current chapter:", error);
+          setError(`Failed to play chapter. Error: ${error.message}`);
+          return;
+        }
+      }
+      
+      // If it's already playing, do nothing
+      return;
     }
-
-    // Preload next and previous chapters in background
-    const preloadChapters = [
-      chapters[index - 1]?.url, 
-      chapters[index]?.url, 
-      chapters[index + 1]?.url
-    ].filter(Boolean);
-
-    // Create new audio with optimized loading
-    const newAudio = new Audio(chapters[index].url);
+  
+    // Existing loading prevention
+    if (isChapterLoading) return;
     
-    // Simplify audio loading
-    await new Promise((resolve, reject) => {
-      newAudio.oncanplaythrough = resolve;
-      newAudio.onerror = reject;
-      newAudio.load();
-    });
+    setIsChapterLoading(true);
+    
+    try {
+      // Non-blocking event logging
+      const email = localStorage.getItem('plutoemail') || 'anonymous';
+      fetch('https://contractus.co.in/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, Chapter: index })
+      });
+  
+      // Stop current audio immediately
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.src = '';
+      }
+  
+      // Preload next and previous chapters in background
+      const preloadChapters = [
+        chapters[index - 1]?.url, 
+        chapters[index]?.url, 
+        chapters[index + 1]?.url
+      ].filter(Boolean);
+  
+      // Create new audio with optimized loading
+      const newAudio = new Audio(chapters[index].url);
+      
+      // Simplify audio loading
+      await new Promise((resolve, reject) => {
+        newAudio.oncanplaythrough = resolve;
+        newAudio.onerror = reject;
+        newAudio.load();
+      });
+  
+      // Update state
+      setCurrentChapter(index);
+      setCurrentTime(0);
+      setAudioElement(newAudio);
+  
+      // Start playing
+      await newAudio.play();
+      setIsPlaying(true);
+  
+    } catch (error) {
+      console.error("Chapter play failed:", error);
+      setError(`Chapter load error: ${error.message}`);
+    } finally {
+      setIsChapterLoading(false);
+    }
+  };
 
-    // Update state
-    setCurrentChapter(index);
-    setCurrentTime(0);
-    setAudioElement(newAudio);
-
-    // Start playing
-    await newAudio.play();
-    setIsPlaying(true);
-
-  } catch (error) {
-    console.error("Chapter play failed:", error);
-    setError(`Chapter load error: ${error.message}`);
-  } finally {
-    setIsChapterLoading(false);
-  }
-};
 
 
 
@@ -927,36 +999,50 @@ const playChapter = async (index) => {
     </div>
   )}
 
-
 {activeTab === 'chapters' && (
- <div className="p-4 h-[65vh] overflow-y-auto custom-scrollbar">
-{chapters.map((chapter, index) => (
-  <div
-    key={index}
-    onClick={() => !isChapterLoading && playChapter(index)}
-    className={`py-2 sm:py-2.5 border-b border-gray-200 first:border-t ${
-      currentChapter === index ? "bg-gray-50" : ""
-    } cursor-pointer transition-colors ${isChapterLoading ? "opacity-50 pointer-events-none" : ""}`}
-  >
-    <div className="px-2 flex justify-between items-center">
-      <div>
-        <p className="text-xs text-gray-400 mb-0.5">
-          Chapter {index}
-        </p>
-        <p className={`text-sm text-gray-900 ${
-          currentChapter === index ? "font-bold" : ""
-        }`}>
-          {chapter.title || `Chapter ${index + 1}`}
-        </p>
-      </div>
-      {isChapterLoading && currentChapter === index && (
-        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"/>
-      )}
-    </div>
-  </div>
-))}
-  </div>
-)}
+        <div className="p-4 h-[65vh] overflow-y-auto custom-scrollbar">
+          {(() => {
+            // Get the appropriate filter lists based on persona
+            const { listA, listB } = getChapterFilterLists(persona);
+    
+            return chapters
+              .map((chapter, originalIndex) => ({ chapter, originalIndex }))
+              .filter(({ originalIndex }) => !listA.includes(originalIndex))
+              .map(({ chapter, originalIndex }, filteredIndex) => {
+                // Determine which chapter to play
+                const chapterToPlay = listB.includes(filteredIndex + 1) 
+                  ? originalIndex - 1 
+                  : originalIndex;
+    
+                return (
+                  <div
+                    key={originalIndex}
+                    onClick={() => !isChapterLoading && playChapter(chapterToPlay)}
+                    className={`py-2 sm:py-2.5 border-b border-gray-200 first:border-t ${
+                      currentChapter === originalIndex ? "bg-gray-50" : ""
+                    } cursor-pointer transition-colors ${isChapterLoading ? "opacity-50 pointer-events-none" : ""}`}
+                  >
+                    <div className="px-2 flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-0.5">
+                          Chapter {filteredIndex + 1}
+                        </p>
+                        <p className={`text-sm text-gray-900 ${
+                          currentChapter === originalIndex ? "font-bold" : ""
+                        }`}>
+                          {chapter.title || `Chapter ${filteredIndex + 1}`}
+                        </p>
+                      </div>
+                      {isChapterLoading && currentChapter === originalIndex && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"/>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+          })()}
+             </div>
+  )};
 
 
 
