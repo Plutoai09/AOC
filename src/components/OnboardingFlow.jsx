@@ -196,7 +196,7 @@ const OnboardingFlow = () => {
                 onChange={(e) => setResponses(prev => ({ ...prev, currentAndNext: e.target.value }))}
                 className="w-full px-4 py-3 text-base bg-gray-200 border-b-2 border-gray-700 text-gray-800 placeholder-gray-500 focus:outline-none focus:border-gray-800 transition-colors duration-300 resize-none"
                 rows={3}
-                placeholder="I'm currently... and I want to..."
+                placeholder="Tell us what you do and your issues"
               />
             </div>
           </div>
