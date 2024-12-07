@@ -58,8 +58,9 @@ const OnboardingFlow = () => {
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
+      const email = localStorage.getItem('plutoemail') || 'anonymous';
       const requestBody = {
-        Name: responses.name,
+        Name: email,
         First: responses.currentAndNext,
         Second: responses.weakness,
         Third: responses.impacts.join(', ')
